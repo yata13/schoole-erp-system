@@ -1,0 +1,158 @@
+-- Shared helpers for the pgTAP tests. Included with \ir from each test file,
+-- inside that file's transaction, so everything here is rolled back.
+-- (Named .psql so pg_prove / `supabase test db` do not run it as a test.)
+
+create schema tests;
+grant usage on schema tests to authenticated;
+
+create table tests.ids (name text primary key, id uuid not null);
+grant select, insert on tests.ids to authenticated;
+
+create function tests.id(p_name text) returns uuid
+language sql stable as $$ select id from tests.ids where name = p_name $$;
+
+create function tests.keep(p_name text, p_id uuid) returns uuid
+language sql as $$ insert into tests.ids values (p_name, p_id) returning id $$;
+
+-- auth user + profile + roles
+create function tests.make_user(p_name text, p_school uuid, p_roles public.app_role[])
+returns uuid
+language plpgsql as $$
+declare
+  v_id uuid := gen_random_uuid();
+begin
+  insert into auth.users (id, email) values (v_id, p_name || '@test.local');
+  insert into public.profiles (id, school_id, login_id, full_name)
+  values (v_id, p_school, upper(p_name), p_name);
+  insert into public.user_roles (school_id, user_id, role)
+  select p_school, v_id, r from unnest(p_roles) r;
+  return tests.keep(p_name, v_id);
+end $$;
+
+-- Act as a signed-in user. The token claims come from the real login hook.
+create function tests.login_as(p_name text) returns void
+language plpgsql as $$
+declare
+  v_user uuid;
+begin
+  perform set_config('role', 'none', true);
+  v_user := tests.id(p_name);
+  perform set_config(
+    'request.jwt.claims',
+    (public.custom_access_token_hook(jsonb_build_object(
+       'user_id', v_user,
+       'claims', jsonb_build_object('sub', v_user, 'role', 'authenticated'))) -> 'claims')::text,
+    true);
+  perform set_config('role', 'authenticated', true);
+end $$;
+
+-- Back to the migration owner (bypasses RLS), no token.
+create function tests.logout() returns void
+language plpgsql as $$
+begin
+  perform set_config('role', 'none', true);
+  perform set_config('request.jwt.claims', '', true);
+end $$;
+
+grant execute on all functions in schema tests to authenticated;
+
+-- Count rows of a table as the current user (RLS applies).
+create function tests.count_visible(p_table text) returns bigint
+language plpgsql as $$
+declare v bigint;
+begin
+  execute format('select count(*) from public.%I', p_table) into v;
+  return v;
+end $$;
+grant execute on function tests.count_visible(text) to authenticated;
+
+-- Run a statement as the current user and return how many rows it touched.
+create function tests.rows_affected(p_sql text) returns int
+language plpgsql as $$
+declare n int;
+begin
+  execute p_sql;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+grant execute on function tests.rows_affected(text) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Two schools with people in every role.
+--
+-- School A (TSA), year 2019 current + 2020 planning:
+--   sections 9-1 (homeroom: teacher_a), 9-2, 11-1 natural, 11-2 social, 12-1 natural
+--   student_a1 in 9-1 (parent_a1), student_a2 in 9-2 (parent_a2)
+--   logins: super_admin_a, director_a, registrar_a, teacher_a, teacher_a2,
+--           finance_a, student_a1, parent_a1, student_a2, parent_a2
+-- School B (TSB): super_admin_b, registrar_b, student_b1 in 9-1
+-- ---------------------------------------------------------------------------
+create function tests.build_fixture() returns void
+language plpgsql as $$
+declare
+  a uuid; b uuid;
+begin
+  a := tests.keep('school_a', gen_random_uuid());
+  b := tests.keep('school_b', gen_random_uuid());
+  insert into public.schools (id, code, name) values (a, 'TSA', 'Test School A'), (b, 'TSB', 'Test School B');
+
+  insert into public.academic_years (id, school_id, ec_year, name, start_date, end_date, is_current, status) values
+    (tests.keep('year_a', gen_random_uuid()),      a, 2019, '2019 E.C.', '2026-09-11', '2027-07-07', true,  'active'),
+    (tests.keep('year_a_next', gen_random_uuid()), a, 2020, '2020 E.C.', '2027-09-12', '2028-07-06', false, 'planning'),
+    (tests.keep('year_b', gen_random_uuid()),      b, 2019, '2019 E.C.', '2026-09-11', '2027-07-07', true,  'active');
+
+  insert into public.grades (id, school_id, level, name) values
+    (tests.keep('g9_a',  gen_random_uuid()), a,  9, 'Grade 9'),
+    (tests.keep('g10_a', gen_random_uuid()), a, 10, 'Grade 10'),
+    (tests.keep('g11_a', gen_random_uuid()), a, 11, 'Grade 11'),
+    (tests.keep('g12_a', gen_random_uuid()), a, 12, 'Grade 12'),
+    (tests.keep('g9_b',  gen_random_uuid()), b,  9, 'Grade 9');
+
+  perform tests.make_user('super_admin_a', a, '{super_admin}');
+  perform tests.make_user('director_a',    a, '{director}');
+  perform tests.make_user('registrar_a',   a, '{registrar}');
+  perform tests.make_user('teacher_a',     a, '{teacher}');
+  perform tests.make_user('teacher_a2',    a, '{teacher}');
+  perform tests.make_user('finance_a',     a, '{finance}');
+  perform tests.make_user('student_a1',    a, '{student}');
+  perform tests.make_user('parent_a1',     a, '{parent}');
+  perform tests.make_user('student_a2',    a, '{student}');
+  perform tests.make_user('parent_a2',     a, '{parent}');
+  perform tests.make_user('super_admin_b', b, '{super_admin}');
+  perform tests.make_user('registrar_b',   b, '{registrar}');
+
+  insert into public.staff (id, school_id, profile_id, staff_code, first_name, father_name, gender, position) values
+    (tests.keep('staff_teacher_a',  gen_random_uuid()), a, tests.id('teacher_a'),  'T-001', 'Abebe', 'Kebede', 'M', 'teacher'),
+    (tests.keep('staff_teacher_a2', gen_random_uuid()), a, tests.id('teacher_a2'), 'T-002', 'Almaz', 'Tadesse', 'F', 'teacher');
+
+  insert into public.sections (id, school_id, academic_year_id, grade_id, name, stream, homeroom_teacher_id) values
+    (tests.keep('s9_1_a',  gen_random_uuid()), a, tests.id('year_a'), tests.id('g9_a'),  '9-1',  null, tests.id('staff_teacher_a')),
+    (tests.keep('s9_2_a',  gen_random_uuid()), a, tests.id('year_a'), tests.id('g9_a'),  '9-2',  null, null),
+    (tests.keep('s11_1_a', gen_random_uuid()), a, tests.id('year_a'), tests.id('g11_a'), '11-1', 'natural', null),
+    (tests.keep('s11_2_a', gen_random_uuid()), a, tests.id('year_a'), tests.id('g11_a'), '11-2', 'social', null),
+    (tests.keep('s12_1_a', gen_random_uuid()), a, tests.id('year_a'), tests.id('g12_a'), '12-1', 'natural', null),
+    (tests.keep('s9_1_b',  gen_random_uuid()), b, tests.id('year_b'), tests.id('g9_b'),  '9-1',  null, null);
+
+  insert into public.students (id, school_id, profile_id, first_name, father_name, gender) values
+    (tests.keep('st_a1', gen_random_uuid()), a, tests.id('student_a1'), 'Hana',  'Girma',  'F'),
+    (tests.keep('st_a2', gen_random_uuid()), a, tests.id('student_a2'), 'Dawit', 'Bekele', 'M'),
+    (tests.keep('st_b1', gen_random_uuid()), b, null,                   'Sara',  'Haile',  'F');
+
+  insert into public.guardians (id, school_id, profile_id, full_name, phone) values
+    (tests.keep('gd_a1', gen_random_uuid()), a, tests.id('parent_a1'), 'Girma Alemu',  '+251911000001'),
+    (tests.keep('gd_a2', gen_random_uuid()), a, tests.id('parent_a2'), 'Bekele Tesfa', '+251911000002');
+
+  insert into public.student_guardians (school_id, student_id, guardian_id, relationship, is_primary) values
+    (a, tests.id('st_a1'), tests.id('gd_a1'), 'father', true),
+    (a, tests.id('st_a2'), tests.id('gd_a2'), 'father', true);
+
+  insert into public.enrollments (id, school_id, student_id, academic_year_id, grade_id, section_id) values
+    (tests.keep('en_a1', gen_random_uuid()), a, tests.id('st_a1'), tests.id('year_a'), tests.id('g9_a'), tests.id('s9_1_a')),
+    (tests.keep('en_a2', gen_random_uuid()), a, tests.id('st_a2'), tests.id('year_a'), tests.id('g9_a'), tests.id('s9_2_a')),
+    (tests.keep('en_b1', gen_random_uuid()), b, tests.id('st_b1'), tests.id('year_b'), tests.id('g9_b'), tests.id('s9_1_b'));
+end $$;
+
+-- Count storage objects the current user can see (RLS applies).
+create function tests.count_visible_objects() returns bigint
+language sql as $$ select count(*) from storage.objects $$;
+grant execute on function tests.count_visible_objects() to authenticated;
