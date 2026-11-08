@@ -39,8 +39,27 @@ PGHOST=/var/run/postgresql PGPORT=54322 PGUSER=postgres scripts/db/section-race-
 
 `scripts/db/supabase-shim.sql` provides the small parts of Supabase (`auth`, `storage` and the API roles) that the migrations need on plain Postgres. It is only for local tests and is never applied to a Supabase project.
 
-## Hosted project setup
+## Hosted project
 
-1. Apply the migrations: `npx supabase db push`.
-2. Turn on the login token hook. Go to **Authentication → Hooks → Customize Access Token**, then choose `public.custom_access_token_hook`. Without it, tokens carry no `school_id`, and RLS refuses everything.
-3. Keep public sign-up off. Logins are made only by the `create-users` Edge Function.
+| | |
+|---|---|
+| Project | `school-erp` (ref `uuslloclignjvcvtakqn`), org Sefed studio |
+| Region | eu-central-1 (Frankfurt), Postgres 17 |
+| API URL | `https://uuslloclignjvcvtakqn.supabase.co` |
+| Migrations | `0001`–`0008` applied; migration history uses the same version numbers as the files here |
+| Seed | not loaded (`seed.sql` is demo data) |
+
+New migrations go out with:
+
+```bash
+npx supabase link --project-ref uuslloclignjvcvtakqn
+```
+
+```bash
+npx supabase db push
+```
+
+Dashboard settings that SQL cannot set (do these once):
+
+1. Turn on the login token hook. Go to **Authentication → Hooks → Customize Access Token**, then choose `public.custom_access_token_hook`. Without it, tokens carry no `school_id`, and RLS refuses everything.
+2. Turn public sign-up off under **Authentication → Sign In / Providers → Allow new users to sign up**. Logins are made only by the `create-users` Edge Function.
