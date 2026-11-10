@@ -13,7 +13,8 @@ One database serves many schools. Every table has `school_id`, and Row Level Sec
 - [x] Seed: 1 school, 4 grades, 40 sections, subjects
 - [x] Database tests: 169 checks, plus a two-session race check for section capacity
 - [ ] Edge Functions: `create-users`, `reset-password`
-- [ ] React app: auth, users, setup, students
+- [x] React app shell, live on Netlify: login, school setup (read), student list
+- [ ] React app: user management, editing setup, student profile, import, moves
 
 ## Run the database
 
@@ -39,7 +40,13 @@ PGHOST=/var/run/postgresql PGPORT=54322 PGUSER=postgres scripts/db/section-race-
 
 `scripts/db/supabase-shim.sql` provides the small parts of Supabase (`auth`, `storage` and the API roles) that the migrations need on plain Postgres. It is only for local tests and is never applied to a Supabase project.
 
-## Hosted project
+## Live app
+
+**https://sefed-school-erp.netlify.app**: Netlify site `sefed-school-erp` (id `b44970bd-c2e4-4c23-b568-17e9d6a3e9fd`).
+Netlify builds it with `npm run build` (see `netlify.toml`). The public Supabase URL and publishable key are in `.env.production`. Preview deploys need Netlify team login; the live site is public and every page sits behind the app's own login.
+It was deployed by upload, so a git push does not redeploy it yet. Connect the GitHub repo under the site's **Project configuration → Build & deploy** for deploys on every push.
+
+## Hosted database
 
 | | |
 |---|---|
