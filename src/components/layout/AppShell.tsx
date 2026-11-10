@@ -1,106 +1,97 @@
-import { NavLink, Outlet } from 'react-router'
-import type { AppRole } from '../../lib/supabase'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../../features/auth/AuthProvider'
 import { useMyProfile, useMySchool, useSignOut } from '../../features/auth/hooks'
+import { NAV, ROLE_LABEL } from '../../lib/nav'
+import { Icon } from '../ui/icons'
 
-type NavItem = { to: string; label: string; icon: string; roles?: AppRole[] }
-
-export const NAV: NavItem[] = [
-  { to: '/', label: 'Home', icon: 'M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z' },
-  {
-    to: '/students',
-    label: 'Students',
-    icon: 'M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21a8 8 0 0116 0',
-    roles: ['super_admin', 'director', 'registrar', 'teacher', 'finance'],
-  },
-  { to: '/setup', label: 'School setup', icon: 'M4 6h16M4 12h16M4 18h10' },
-]
-
-const ROLE_LABEL: Record<AppRole, string> = {
-  super_admin: 'Super admin',
-  director: 'Director',
-  registrar: 'Registrar',
-  teacher: 'Teacher',
-  finance: 'Finance',
-  student: 'Student',
-  parent: 'Parent',
-}
-
-function Icon({ d }: { d: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8"
-      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={d} />
-    </svg>
-  )
-}
-
-export function AppShell() {
+function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { roles, hasAnyRole } = useAuth()
   const school = useMySchool()
   const profile = useMyProfile()
   const signOut = useSignOut()
   const items = NAV.filter((i) => !i.roles || hasAnyRole(...i.roles))
 
-  const link = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
-      isActive ? 'bg-blue-50 text-blue-800' : 'text-slate-600 hover:bg-slate-100'
-    }`
+  return (
+    <div className="flex h-full flex-col bg-gradient-to-b from-[#0b1220] via-[#111a35] to-[#1b1550] text-slate-300">
+      <div className="flex items-center gap-3 px-5 pb-5 pt-6">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-500 text-white shadow-lg shadow-indigo-900/40">
+          <Icon name="cap" className="h-6 w-6" />
+        </div>
+        <div className="min-w-0">
+          <p className="line-clamp-2 text-[15px] font-extrabold leading-tight tracking-tight text-white">{school.data?.name ?? 'School ERP'}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-300">{school.data?.code ?? ''} · ERP</p>
+        </div>
+      </div>
+
+      <nav className="scroll-thin flex-1 space-y-1 overflow-y-auto px-3">
+        {items.map((i) => (
+          <NavLink
+            key={i.to}
+            to={i.to}
+            end={i.to === '/'}
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              `group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
+                isActive
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-indigo-900/40'
+                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
+              }`
+            }
+          >
+            <Icon name={i.icon} className="h-5 w-5 shrink-0" />
+            <span className="flex-1">{i.label}</span>
+            {i.note && <span className="text-xs font-normal opacity-70">{i.note}</span>}
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className="m-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+        <p className="truncate text-sm font-semibold text-white">{profile.data?.full_name ?? ' '}</p>
+        <p className="truncate text-xs text-indigo-200">{roles.map((r) => ROLE_LABEL[r]).join(', ')}</p>
+        <button
+          onClick={() => signOut.mutate()}
+          className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-white"
+        >
+          <Icon name="logout" className="h-4 w-4" /> Sign out
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export function AppShell() {
+  const [open, setOpen] = useState(false)
+  const location = useLocation()
+  const school = useMySchool()
+  useEffect(() => setOpen(false), [location.pathname])
 
   return (
     <div className="flex min-h-full">
-      {/* Sidebar (tablet and up) */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
-        <div className="border-b border-slate-200 px-4 py-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{school.data?.code ?? '…'}</p>
-          <p className="mt-0.5 font-semibold leading-snug">{school.data?.name ?? ' '}</p>
-        </div>
-        <nav className="flex-1 space-y-1 p-3">
-          {items.map((i) => (
-            <NavLink key={i.to} to={i.to} end={i.to === '/'} className={link}>
-              <Icon d={i.icon} />
-              {i.label}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="border-t border-slate-200 p-4 text-sm">
-          <p className="font-medium">{profile.data?.full_name ?? ' '}</p>
-          <p className="text-slate-500">{roles.map((r) => ROLE_LABEL[r]).join(', ')}</p>
-          <button className="mt-2 font-medium text-blue-700 hover:underline" onClick={() => signOut.mutate()}>
-            Sign out
-          </button>
-        </div>
+      <aside className="hidden w-64 shrink-0 bg-[#0b1220] lg:block">
+        <div className="sticky top-0 h-screen"><Sidebar /></div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* Top bar (phone) */}
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden">
-          <p className="truncate font-semibold">{school.data?.name ?? 'School ERP'}</p>
-          <button className="text-sm font-medium text-blue-700" onClick={() => signOut.mutate()}>
-            Sign out
-          </button>
-        </header>
+      {/* Phone / tablet drawer */}
+      {open && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <aside className="rise absolute inset-y-0 left-0 w-72 shadow-2xl">
+            <Sidebar onNavigate={() => setOpen(false)} />
+          </aside>
+        </div>
+      )}
 
-        <main className="flex-1 px-4 pb-24 pt-5 md:px-8 md:pb-8 md:pt-8">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
+          <button onClick={() => setOpen(true)} className="rounded-lg p-1.5 text-slate-700 hover:bg-slate-100" aria-label="Open menu">
+            <Icon name="menu" className="h-6 w-6" />
+          </button>
+          <p className="truncate font-bold">{school.data?.name ?? 'School ERP'}</p>
+        </header>
+        <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 md:px-8 md:py-8">
           <Outlet />
         </main>
-
-        {/* Bottom nav (phone) */}
-        <nav className="fixed inset-x-0 bottom-0 flex border-t border-slate-200 bg-white md:hidden">
-          {items.map((i) => (
-            <NavLink
-              key={i.to}
-              to={i.to}
-              end={i.to === '/'}
-              className={({ isActive }) =>
-                `flex flex-1 flex-col items-center gap-0.5 py-2 text-xs ${isActive ? 'text-blue-700' : 'text-slate-500'}`
-              }
-            >
-              <Icon d={i.icon} />
-              {i.label}
-            </NavLink>
-          ))}
-        </nav>
       </div>
     </div>
   )
