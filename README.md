@@ -11,7 +11,7 @@ One database serves many schools. Every table has `school_id`, and Row Level Sec
 
 - [x] Database: enums and helpers, tenancy and login token hook, school setup, people, enrollment, audit and soft delete, RLS, storage
 - [x] Seed: 1 school, 4 grades, 40 sections, subjects
-- [x] Database tests: 169 checks, plus a two-session race check for section capacity
+- [x] Database tests: 182 checks, plus a two-session race check for section capacity
 - [ ] Edge Functions: `create-users`, `reset-password`
 - [x] React app shell, live on Netlify: login, school setup (read), student list
 - [ ] React app: user management, editing setup, student profile, import, moves
@@ -53,8 +53,8 @@ It was deployed by upload, so a git push does not redeploy it yet. Connect the G
 | Project | `school-erp` (ref `uuslloclignjvcvtakqn`), org Sefed studio |
 | Region | eu-central-1 (Frankfurt), Postgres 17 |
 | API URL | `https://uuslloclignjvcvtakqn.supabase.co` |
-| Migrations | `0001`–`0008` applied; migration history uses the same version numbers as the files here |
-| Seed | not loaded (`seed.sql` is demo data) |
+| Migrations | `0001`–`0010` applied; migration history uses the same version numbers as the files here |
+| Seed | loaded: demo school `AHS` with test admin `ADMIN` / `Admin@1234` (test only) |
 
 New migrations go out with:
 
@@ -66,7 +66,7 @@ npx supabase link --project-ref uuslloclignjvcvtakqn
 npx supabase db push
 ```
 
-Dashboard settings that SQL cannot set (do these once):
+Dashboard settings that SQL cannot set:
 
-1. Turn on the login token hook. Go to **Authentication → Hooks → Customize Access Token**, then choose `public.custom_access_token_hook`. Without it, tokens carry no `school_id`, and RLS refuses everything.
+1. Optional speed-up: turn on the login token hook under **Authentication → Hooks → Customize Access Token** and choose `public.custom_access_token_hook`. Then school and roles travel in the token. Without it, the database looks them up instead (migration 0009), with the same rules.
 2. Turn public sign-up off under **Authentication → Sign In / Providers → Allow new users to sign up**. Logins are made only by the `create-users` Edge Function.

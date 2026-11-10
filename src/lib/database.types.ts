@@ -1551,6 +1551,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      my_access: { Args: never; Returns: Json }
       promote_students: {
         Args: {
           p_apply?: boolean

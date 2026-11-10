@@ -1,20 +1,17 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase, type AppRole } from '../../lib/supabase'
 
-// school_id and user_roles are put into the token by custom_access_token_hook.
-type Claims = { school_id?: string; user_roles?: AppRole[] }
+// My school and roles. The database answers from the login token when the
+// access-token hook is on, and from its own tables when it is off (0009).
+type Access = { school_id: string | null; user_roles: AppRole[] }
 
-function readClaims(session: Session | null): Claims {
-  if (!session) return {}
-  try {
-    const payload = session.access_token.split('.')[1]
-    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
-    return JSON.parse(json) as Claims
-  } catch {
-    return {}
-  }
+async function fetchAccess(): Promise<Access> {
+  const { data, error } = await supabase.rpc('my_access')
+  if (error) throw error
+  const a = (data ?? {}) as Partial<Access>
+  return { school_id: a.school_id ?? null, user_roles: a.user_roles ?? [] }
 }
 
 type AuthState = {
@@ -42,18 +39,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => data.subscription.unsubscribe()
   }, [queryClient])
 
+  const userId = session?.user.id ?? null
+  const access = useQuery({
+    queryKey: ['my_access', userId],
+    queryFn: fetchAccess,
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  })
+
   const value = useMemo<AuthState>(() => {
-    const claims = readClaims(session ?? null)
-    const roles = claims.user_roles ?? []
+    const roles = access.data?.user_roles ?? []
     return {
-      loading: session === undefined,
+      loading: session === undefined || (!!userId && access.isLoading),
       session: session ?? null,
-      userId: session?.user.id ?? null,
-      schoolId: claims.school_id ?? null,
+      userId,
+      schoolId: access.data?.school_id ?? null,
       roles,
       hasAnyRole: (...wanted) => wanted.some((r) => roles.includes(r)),
     }
-  }, [session])
+  }, [session, userId, access.data, access.isLoading])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -19,8 +19,8 @@ export function RequireAuth({ roles, children }: { roles?: AppRole[]; children: 
     return (
       <div className="mx-auto max-w-md p-6 pt-20">
         <Notice tone="warn" title="Your account is not linked to a school">
-          You are signed in, but your login has no school or role. Ask your school's admin to check your
-          account. (Admins: make sure the Customize Access Token hook is on in Supabase.)
+          You are signed in, but your login has no active school or role. Ask your school's admin to check
+          your account.
         </Notice>
         <button
           className="mt-4 text-sm font-medium text-blue-700 hover:underline"

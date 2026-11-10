@@ -156,3 +156,18 @@ end $$;
 create function tests.count_visible_objects() returns bigint
 language sql as $$ select count(*) from storage.objects $$;
 grant execute on function tests.count_visible_objects() to authenticated;
+
+-- Act as a signed-in user whose token has no school or roles
+-- (the login-token hook is off).
+create function tests.login_without_hook(p_name text) returns void
+language plpgsql as $$
+declare
+  v_user uuid;
+begin
+  perform set_config('role', 'none', true);
+  v_user := tests.id(p_name);
+  perform set_config('request.jwt.claims',
+    jsonb_build_object('sub', v_user, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+end $$;
+grant execute on function tests.login_without_hook(text) to authenticated;

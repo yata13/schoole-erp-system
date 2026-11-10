@@ -4,7 +4,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 \ir support/helpers.psql
 select tests.build_fixture();
-select plan(33);
+select plan(35);
 
 -- ---------------------------------------------------------------------------
 -- UNIQUE rules are per school
@@ -130,6 +130,17 @@ select results_eq(
            and action in ('soft_delete', 'restore') order by id$$, tests.id('st_a1')),
   $$values ('soft_delete'::text), ('restore'::text)$$,
   'soft delete and restore are in the audit log');
+
+-- ---------------------------------------------------------------------------
+-- Editing the school itself
+-- ---------------------------------------------------------------------------
+select tests.login_as('super_admin_a');
+select is(tests.rows_affected($$update public.schools set name = 'Renamed School A', pass_mark = 55$$), 1,
+          'the super admin can edit their school');
+select tests.login_as('registrar_a');
+select is(tests.rows_affected($$update public.schools set name = 'Not allowed'$$), 0,
+          'a registrar cannot edit the school');
+select tests.logout();
 
 -- ---------------------------------------------------------------------------
 -- Login token
