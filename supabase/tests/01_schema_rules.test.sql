@@ -68,10 +68,10 @@ select is_empty(
      where schemaname in ('public', 'storage')
        and regexp_replace(
              regexp_replace(coalesce(qual, '') || ' ' || coalesce(with_check, ''),
-                            'SELECT (public\.|auth\.)?(current_school_id|has_role|has_any_role|is_platform_admin|current_staff_id|current_student_id|current_guardian_id|guardian_student_ids|teacher_section_ids|teacher_student_ids|uid|jwt)\(',
+                            'SELECT (public\.|auth\.)?(current_school_id|has_role|has_any_role|is_platform_admin|current_staff_id|current_student_id|current_guardian_id|guardian_student_ids|teacher_section_ids|teacher_student_ids|teacher_assignment_ids|my_student_ids|uid|jwt)\(',
                             '', 'g'),
              '\s+', ' ', 'g')
-           ~ '(current_school_id|has_role|has_any_role|is_platform_admin|current_staff_id|current_student_id|current_guardian_id|guardian_student_ids|teacher_section_ids|teacher_student_ids|auth\.uid|auth\.jwt|uid|jwt)\(' $$,
+           ~ '(current_school_id|has_role|has_any_role|is_platform_admin|current_staff_id|current_student_id|current_guardian_id|guardian_student_ids|teacher_section_ids|teacher_student_ids|teacher_assignment_ids|my_student_ids|auth\.uid|auth\.jwt|uid|jwt)\(' $$,
   'every policy calls helpers as (select fn())'
 );
 
