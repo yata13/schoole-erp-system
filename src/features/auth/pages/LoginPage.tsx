@@ -7,6 +7,14 @@ import { useSignIn } from '../hooks'
 
 const SCHOOL_CODE_KEY = 'erp.schoolCode'
 
+// Test builds only: VITE_DEMO_* in .env.production pre-fill the form.
+const DEMO = {
+  schoolCode: (import.meta.env.VITE_DEMO_SCHOOL_CODE as string | undefined) ?? '',
+  loginId: (import.meta.env.VITE_DEMO_LOGIN_ID as string | undefined) ?? '',
+  password: (import.meta.env.VITE_DEMO_PASSWORD as string | undefined) ?? '',
+}
+const HAS_DEMO = !!(DEMO.schoolCode && DEMO.loginId && DEMO.password)
+
 function rememberedCode(): string {
   try {
     return localStorage.getItem(SCHOOL_CODE_KEY) ?? ''
@@ -19,9 +27,9 @@ export function LoginPage() {
   const { session } = useAuth()
   const location = useLocation()
   const signIn = useSignIn()
-  const [schoolCode, setSchoolCode] = useState(rememberedCode)
-  const [loginId, setLoginId] = useState('')
-  const [password, setPassword] = useState('')
+  const [schoolCode, setSchoolCode] = useState(() => (HAS_DEMO ? DEMO.schoolCode : rememberedCode()))
+  const [loginId, setLoginId] = useState(HAS_DEMO ? DEMO.loginId : '')
+  const [password, setPassword] = useState(HAS_DEMO ? DEMO.password : '')
 
   if (session) {
     const from = (location.state as { from?: string } | null)?.from ?? '/'
@@ -52,6 +60,14 @@ export function LoginPage() {
           <h1 className="mt-3 text-2xl font-bold">School ERP</h1>
           <p className="mt-1 text-sm text-slate-500">Sign in with your school code and your ID or phone.</p>
         </div>
+
+        {HAS_DEMO && (
+          <div className="mb-4">
+            <Notice tone="warn" title="Test account">
+              The form is filled with the test admin ({DEMO.schoolCode} / {DEMO.loginId}). Just press Sign in.
+            </Notice>
+          </div>
+        )}
 
         <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <Field label="School code">
