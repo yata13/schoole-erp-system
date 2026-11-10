@@ -3,7 +3,7 @@
 A multi-school ERP for Ethiopian schools, KG1 to grade 12. It uses React + TypeScript + Vite + Tailwind for the app, with Supabase (Postgres, Auth, Storage) behind it.
 One database serves many schools. Every table has `school_id`, and Row Level Security keeps each school, and each person, to their own data.
 
-- Schema and rules: [`docs/phase-1-tables.md`](docs/phase-1-tables.md), plus migrations `0011`–`0016` for the ERP modules
+- Schema and rules: [`docs/phase-1-tables.md`](docs/phase-1-tables.md), plus migrations `0011`–`0017` for the ERP modules
 - Migrations: `supabase/migrations/` (one step per file, run in order)
 - Database tests (pgTAP): `supabase/tests/`
 - Demo data: `supabase/seed-demo.sql`
@@ -82,7 +82,7 @@ It was deployed by upload, so a git push does not redeploy it yet. Connect the G
 | Project | `school-erp` (ref `uuslloclignjvcvtakqn`), org Sefed studio |
 | Region | eu-central-1 (Frankfurt), Postgres 17 |
 | API URL | `https://uuslloclignjvcvtakqn.supabase.co` |
-| Migrations | `0001`–`0016` applied; migration history uses the same version numbers as the files here |
+| Migrations | `0001`–`0017` applied; migration history uses the same version numbers as the files here |
 | Data | demo school `AHS` from `seed-demo.sql` (test only) |
 
 New migrations go out with:

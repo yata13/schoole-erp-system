@@ -26,7 +26,9 @@ grant usage on schema extensions to anon, authenticated, service_role;
 -- Same default grants as Supabase gives the API roles in "public".
 grant usage on schema public to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
-alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
+-- Like Supabase: new functions are executable by the API roles everywhere (a global default,
+-- which a schema-level revoke does not remove).
+alter default privileges grant all on functions to anon, authenticated, service_role;
 alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
 
 -- auth

@@ -2,7 +2,7 @@
 -- These also guard future migrations (Phase 2+).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(10);
 
 -- 1. RLS is on for every table in public.
 select is_empty(
@@ -89,6 +89,15 @@ select is_empty(
   $$ select distinct table_name::text from information_schema.role_table_grants
      where grantee = 'anon' and table_schema = 'public' $$,
   'anon has no table privileges in public'
+);
+
+-- 10. Signed-out visitors (anon) cannot run any of our functions.
+select is_empty(
+  $$ select p.oid::regprocedure::text from pg_proc p
+     where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace)
+       and p.prokind = 'f'
+       and has_function_privilege('anon', p.oid, 'execute') $$,
+  'anon cannot execute any public or private function'
 );
 
 -- 9. Nobody but the auth server can run the login-token hook.
